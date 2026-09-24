@@ -41,12 +41,13 @@ extension SettingsViewController
     private enum AppRefreshRow: Int, CaseIterable
     {
         case backgroundRefresh
+        case refreshInterval
         case noIdleTimeout        
         case addToSiri
         case disableAppLimit
         
         static var allCases: [AppRefreshRow] {
-            var c: [AppRefreshRow] = [.backgroundRefresh, .noIdleTimeout, .addToSiri]
+            var c: [AppRefreshRow] = [.backgroundRefresh, .refreshInterval, .noIdleTimeout, .addToSiri]
 
             // conditional entries go at the last to preserve ordering
             if UserDefaults.standard.isCowExploitSupported || !ProcessInfo().sparseRestorePatched
@@ -137,6 +138,7 @@ final class SettingsViewController: UITableViewController
     @IBOutlet private var accountTypeLabel: UILabel!
     
     @IBOutlet private var backgroundRefreshSwitch: UISwitch!
+    @IBOutlet private var backgroundRefreshIntervalLabel: UILabel!
     @IBOutlet private var noIdleTimeoutSwitch: UISwitch!
     @IBOutlet private var disableAppLimitSwitch: UISwitch!
     @IBOutlet private var betaUpdatesSwitch: UISwitch!
@@ -430,6 +432,7 @@ private extension SettingsViewController
         
         // AppRefreshRow
         self.backgroundRefreshSwitch.isOn = UserDefaults.standard.isBackgroundRefreshEnabled
+        self.updateBackgroundRefreshIntervalLabel()
         self.noIdleTimeoutSwitch.isOn = UserDefaults.standard.isIdleTimeoutDisableEnabled
         self.disableAppLimitSwitch.isOn = UserDefaults.standard.isAppLimitDisabled
 
@@ -534,7 +537,7 @@ private extension SettingsViewController
             }
             else
             {
-                settingsHeaderFooterView.secondaryLabel.text = NSLocalizedString("Enable Background Refresh to automatically refresh apps in the background when connected to Wi-Fi. \n\nEnable Disable Idle Timeout to allow SideStore to keep your device awake during a refresh or install of any apps.", comment: "")
+                settingsHeaderFooterView.secondaryLabel.text = NSLocalizedString("Enable Background Refresh to automatically refresh apps in the background when connected to Wi-Fi. Apps become eligible again after the selected number of days. iOS decides when background refresh runs, so exact timing is not guaranteed. \n\nEnable Disable Idle Timeout to allow SideStore to keep your device awake during a refresh or install of any apps.", comment: "")
             }
             
         case .display:
@@ -766,6 +769,49 @@ private extension SettingsViewController
     @IBAction func toggleIsBackgroundRefreshEnabled(_ sender: UISwitch)
     {
         UserDefaults.standard.isBackgroundRefreshEnabled = sender.isOn
+    }
+
+    private func updateBackgroundRefreshIntervalLabel()
+    {
+        let interval = UserDefaults.standard.backgroundRefreshInterval
+        let value = interval == 1
+            ? NSLocalizedString("1 day", comment: "Background refresh interval")
+            : String.localizedStringWithFormat(NSLocalizedString("%ld days", comment: "Background refresh interval"), Int64(interval))
+        self.backgroundRefreshIntervalLabel.text = value
+    }
+
+    private func presentBackgroundRefreshIntervalPicker(from cell: UITableViewCell)
+    {
+        let preferredStyle: UIAlertController.Style
+#if os(tvOS)
+        preferredStyle = .alert
+#else
+        preferredStyle = .actionSheet
+#endif
+
+        let alert = UIAlertController(
+            title: NSLocalizedString("Background Refresh Interval", comment: ""),
+            message: NSLocalizedString("Choose how many days must pass before apps are eligible for background refresh again.", comment: ""),
+            preferredStyle: preferredStyle
+        )
+
+        for interval in 1...6
+        {
+            let title = interval == 1
+                ? NSLocalizedString("1 day", comment: "Background refresh interval")
+                : String.localizedStringWithFormat(NSLocalizedString("%ld days", comment: "Background refresh interval"), Int64(interval))
+            let isSelected = interval == UserDefaults.standard.backgroundRefreshInterval
+            let actionTitle = isSelected ? "✓ \(title)" : title
+            alert.addAction(UIAlertAction(title: actionTitle, style: .default) { _ in
+                UserDefaults.standard.backgroundRefreshInterval = interval
+                self.updateBackgroundRefreshIntervalLabel()
+            })
+        }
+
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        alert.popoverPresentationController?.sourceView = cell
+        alert.popoverPresentationController?.sourceRect = cell.bounds
+        self.present(alert, animated: true)
     }
     
     @IBAction func toggleNoIdleTimeoutEnabled(_ sender: UISwitch)
@@ -1147,6 +1193,10 @@ extension SettingsViewController
             switch row
             {
             case .backgroundRefresh: break
+            case .refreshInterval:
+                if let cell = tableView.cellForRow(at: indexPath) {
+                    self.presentBackgroundRefreshIntervalPicker(from: cell)
+                }
             case .noIdleTimeout: break
             case .disableAppLimit: break
             case .addToSiri:

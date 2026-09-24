@@ -101,6 +101,10 @@ public extension UserDefaults
         get { self.bool(forKey: #function) }
         set { self.set(newValue, forKey: #function) }
     }
+    @objc var backgroundRefreshInterval: Int {
+        get { min(max(self.integer(forKey: #function), 1), 6) }
+        set { self.set(min(max(newValue, 1), 6), forKey: #function) }
+    }
     @objc var isBackgroundServiceEnabled: Bool {
         get { self.bool(forKey: #function) }
         set { self.set(newValue, forKey: #function) }
@@ -537,6 +541,7 @@ public extension UserDefaults
             #keyPath(UserDefaults.keepAnisetteHeadersAfterLogout): true,
             #keyPath(UserDefaults.keepSideSignHeadersAfterLogout): true,
             #keyPath(UserDefaults.isBackgroundRefreshEnabled): true,
+            #keyPath(UserDefaults.backgroundRefreshInterval): 5,
             #keyPath(UserDefaults.isBackgroundServiceEnabled): true,
             #keyPath(UserDefaults.isBetaUpdatesEnabled): false,
             #keyPath(UserDefaults.permissionCheckingDisabled): true,
